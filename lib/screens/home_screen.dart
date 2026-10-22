@@ -169,7 +169,7 @@ class _RecorderHomePageState extends State<RecorderHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Background Video Recorder'),
+        title: const Text('BGV Recorder'),
       ),
       body: SafeArea(
         child: LayoutBuilder(

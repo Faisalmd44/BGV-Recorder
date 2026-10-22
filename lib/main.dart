@@ -18,7 +18,7 @@ class BackgroundVideoRecorderApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = ColorScheme.fromSeed(seedColor: Colors.teal);
     return MaterialApp(
-      title: 'Background Video Recorder',
+      title: 'BGV Recorder',
       theme: ThemeData(
         colorScheme: scheme,
         useMaterial3: true,

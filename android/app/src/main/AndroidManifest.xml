@@ -9,7 +9,7 @@
     <!-- Needed on Android 13+ to read videos from shared storage (MediaStore) -->
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <application
-        android:label="background_video_recorder"
+        android:label="BGV Recorder"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
