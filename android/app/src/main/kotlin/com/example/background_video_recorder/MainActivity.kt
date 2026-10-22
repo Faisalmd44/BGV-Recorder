@@ -59,7 +59,7 @@ class MainActivity : FlutterActivity() {
                 MediaStore.Video.Media.RELATIVE_PATH
             )
             val selection = MediaStore.Video.Media.RELATIVE_PATH + " LIKE ?"
-            val args = arrayOf("%" + Environment.DIRECTORY_MOVIES + "/BackgroundVideoRecorder%")
+            val args = arrayOf("%BackgroundVideoRecorder%")
             val sortOrder = MediaStore.Video.Media.DATE_ADDED + " DESC"
             contentResolver.query(
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI,

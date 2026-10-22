@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/history_screen.dart';
-import 'screens/contact_screen.dart';
 import 'screens/onboarding_screen.dart';
 
 void main() {
@@ -74,7 +73,6 @@ class _TabsRootState extends State<TabsRoot> {
   final _pages = const [
     RecorderHomePage(),
     HistoryPage(),
-    ContactPage(),
   ];
 
   @override
@@ -87,7 +85,6 @@ class _TabsRootState extends State<TabsRoot> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'History'),
-          NavigationDestination(icon: Icon(Icons.contact_mail_outlined), selectedIcon: Icon(Icons.contact_mail), label: 'Contact'),
         ],
       ),
     );
