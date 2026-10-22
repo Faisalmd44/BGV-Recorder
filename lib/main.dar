@@ -1,0 +1,137 @@
+import 'screens/cut_edit_screen.dart';
+import 'screens/schedule_config_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'screens/home_screen.dart';
+import 'screens/history_screen.dart';
+import 'screens/onboarding_screen.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const BackgroundVideoRecorderApp());
+}
+
+class BackgroundVideoRecorderApp extends StatelessWidget {
+  const BackgroundVideoRecorderApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = ColorScheme.fromSeed(seedColor: Colors.teal);
+    return MaterialApp(
+      title: 'BGV Recorder',
+      theme: ThemeData(
+        colorScheme: scheme,
+        useMaterial3: true,
+        appBarTheme: AppBarTheme(
+          backgroundColor: scheme.surface,
+          foregroundColor: scheme.onSurface,
+          centerTitle: true,
+        ),
+      ),
+      home: const _AppRoot(),
+      routes: {
+        '/history': (_) => const HistoryPage(),
+      },
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class _AppRoot extends StatelessWidget {
+  const _AppRoot();
+
+  Future<bool> _onboardingDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('onboarding_done') ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _onboardingDone(),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return snap.data == true ? const TabsRoot() : const OnboardingPage();
+      },
+    );
+  }
+}
+
+class TabsRoot extends StatefulWidget {
+  const TabsRoot({super.key});
+
+  @override
+  State<TabsRoot> createState() => _TabsRootState();
+}
+
+class _TabsRootState extends State<TabsRoot> {
+  int _index = 0;
+
+  final _pages = const [
+    RecorderHomePage(),
+    HistoryPage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _index, children: _pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'History'),
+        ],
+      ),
+    );
+  }
+}
+// Home screen par card add karne ke liye:
+Container(
+  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+    color: const Color(0xFF1E1E2C),
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: Colors.deepPurpleAccent.withOpacity(0.3)),
+  ),
+  child: Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.deepPurple.withOpacity(0.2),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.alarm, color: Colors.deepPurpleAccent, size: 24),
+      ),
+      const SizedBox(width: 16),
+      const Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Scheduled Recording", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+            SizedBox(height: 2),
+            Text("Tap to configure timer & camera", style: TextStyle(color: Colors.grey, fontSize: 12)),
+          ],
+        ),
+      ),
+      IconButton(
+        icon: const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ScheduleConfigScreen()),
+          );
+        },
+      ),
+    ],
+  ),
+)
+
