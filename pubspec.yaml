@@ -106,3 +106,6 @@ flutter_launcher_icons:
   adaptive_icon_background: "#006A60"
   # If you have a separate foreground layer for Android adaptive icons, specify it:
   # adaptive_icon_foreground: assets/app_icon_foreground.png
+
+dependency_overrides:
+  intl: ^0.19.0
