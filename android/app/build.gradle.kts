@@ -24,6 +24,10 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+        }
     }
 
     packaging {
@@ -32,13 +36,7 @@ android {
         }
         jniLibs {
             useLegacyPackaging = true
-            pickFirsts += listOf(
-                "lib/arm64-v8a/libc++_shared.so",
-                "lib/armeabi-v7a/libc++_shared.so",
-                "lib/x86/libc++_shared.so",
-                "lib/x86_64/libc++_shared.so",
-                "**/libc++_shared.so"
-            )
+            pickFirsts.add("**/*.so")
         }
     }
 
