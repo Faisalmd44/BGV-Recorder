@@ -15,8 +15,6 @@ A Flutter-based mobile application that allows you to record high-quality videos
 
 Download the latest version from our GitHub releases:
 
-[![Download v1.0.0](https://img.shields.io/badge/Download-v1.0.0-blue?style=for-the-badge)](https://github.com/mamee13/background_video_recorder/releases/tag/v1.0.0)
-
 ## Installation
 
 1. Download the APK/IPA from the link above.
