@@ -1,3 +1,4 @@
+import 'schedule_config_screen.dart';
 import 'dart:io';
 import 'dart:async';
 
@@ -179,6 +180,27 @@ class _RecorderHomePageState extends State<RecorderHomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+            Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: Icon(Icons.schedule, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                ),
+                title: const Text('Scheduled Recording', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Set automatic start & stop recording timer'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ScheduleConfigScreen()),
+                  );
+                },
+              ),
+            ),
                   // Header
                   Container(
                     padding: const EdgeInsets.all(20),

@@ -24,30 +24,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-
-        ndk {
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
-        }
-    }
-
-    packaging {
-        resources {
-            excludes += listOf(
-                "/META-INF/{AL2.0,LGPL2.1}",
-                "/META-INF/*.version"
-            )
-        }
-        jniLibs {
-            pickFirsts += listOf(
-                "**/libc++_shared.so",
-                "**/libffmpegkit.so",
-                "**/libffmpegkit_abidetect.so",
-                "**/*.so"
-            )
-            keepDebugSymbols += listOf(
-                "**/*.so"
-            )
-        }
     }
 
     buildTypes {

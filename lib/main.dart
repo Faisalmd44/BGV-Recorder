@@ -1,5 +1,4 @@
 import 'screens/cut_edit_screen.dart';
-import 'screens/schedule_config_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

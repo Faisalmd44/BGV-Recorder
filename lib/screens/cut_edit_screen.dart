@@ -1,94 +1,117 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'video_trimmer_screen.dart';
 
 class CutEditScreen extends StatefulWidget {
-  const CutEditScreen({Key? key}) : super(key: key);
+  const CutEditScreen({super.key});
 
   @override
   State<CutEditScreen> createState() => _CutEditScreenState();
 }
 
 class _CutEditScreenState extends State<CutEditScreen> {
-  List<File> _recordings = [];
-  bool _isLoading = true;
+  List<File> _videos = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadRecordings();
+    _loadVideos();
   }
 
-  Future<void> _loadRecordings() async {
+  Future<void> _loadVideos() async {
+    setState(() => _loading = true);
     await Permission.storage.request();
-    if (Platform.isAndroid) {
-      await Permission.videos.request();
+    await Permission.videos.request();
+
+    final List<File> found = [];
+    final dirs = [
+      Directory('/storage/emulated/0/Movies/BackgroundVideoRecorder'),
+      Directory('/storage/emulated/0/Movies'),
+    ];
+
+    for (final d in dirs) {
+      try {
+        if (d.existsSync()) {
+          final files = d
+              .listSync()
+              .whereType<File>()
+              .where((f) => f.path.toLowerCase().endsWith('.mp4'))
+              .toList();
+          found.addAll(files);
+        }
+      } catch (_) {}
     }
 
-    try {
-      final directory = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
-      final moviesDir = Directory('/storage/emulated/0/Movies/BackgroundVideoRecorder');
-      
-      List<File> files = [];
-      if (moviesDir.existsSync()) {
-        files.addAll(moviesDir.listSync().whereType<File>().where((f) => f.path.endsWith('.mp4')));
-      }
-      if (directory.existsSync()) {
-        files.addAll(directory.listSync().whereType<File>().where((f) => f.path.endsWith('.mp4')));
-      }
+    found.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
 
-      setState(() {
-        _recordings = files.toSet().toList();
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-    }
+    if (!mounted) return;
+    setState(() {
+      _videos = found;
+      _loading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121218),
       appBar: AppBar(
-        title: const Text("Cut & Edit Videos", style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF1E1E2C),
+        title: const Text("Cut & Edit Videos"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadVideos,
+          ),
+        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.deepPurpleAccent))
-          : _recordings.isEmpty
-              ? const Center(
-                  child: Text(
-                    "No recordings found to edit.",
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _videos.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.video_library_outlined, size: 64, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      const Text("No recorded videos found in Movies/BackgroundVideoRecorder"),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _loadVideos,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text("Refresh"),
+                      ),
+                    ],
                   ),
                 )
               : ListView.builder(
-                  itemCount: _recordings.length,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _videos.length,
                   itemBuilder: (context, index) {
-                    final file = _recordings[index];
-                    final fileName = file.path.split('/').last;
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E2C),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    final file = _videos[index];
+                    final name = file.path.split('/').last;
+                    final sizeMb = (file.lengthSync() / (1024 * 1024)).toStringAsFixed(2);
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
                       child: ListTile(
-                        leading: const Icon(Icons.video_file, color: Colors.deepPurpleAccent, size: 36),
-                        title: Text(fileName, style: const TextStyle(color: Colors.white, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text("${(file.lengthSync() / (1024 * 1024)).toStringAsFixed(2)} MB", style: const TextStyle(color: Colors.grey)),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.cut, color: Colors.white70),
-                          onPressed: () {
-                            Navigator.push(
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.movie_creation_outlined),
+                        ),
+                        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text("$sizeMb MB"),
+                        trailing: FilledButton.tonalIcon(
+                          icon: const Icon(Icons.content_cut, size: 18),
+                          label: const Text("Trim"),
+                          onPressed: () async {
+                            final res = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => VideoTrimmerScreen(videoFile: file),
+                                builder: (_) => VideoTrimmerScreen(videoFile: file),
                               ),
                             );
+                            if (res == true) {
+                              _loadVideos();
+                            }
                           },
                         ),
                       ),

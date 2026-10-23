@@ -1,9 +1,51 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:workmanager/workmanager.dart';
+
+class ScheduleManager {
+  static Timer? _timer;
+  static const MethodChannel _channel = MethodChannel('com.example.bgv_recorder/recorder');
+
+  static Future<void> initScheduler() async {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 15), (timer) async {
+      await _checkAndTrigger();
+    });
+  }
+
+  static Future<void> _checkAndTrigger() async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool('schedule_enabled') ?? false;
+    if (!enabled) return;
+
+    final startMs = prefs.getInt('schedule_start_ms') ?? 0;
+    final endMs = prefs.getInt('schedule_end_ms') ?? 0;
+    final camera = prefs.getString('schedule_camera') ?? 'back';
+    final isTriggered = prefs.getBool('schedule_triggered') ?? false;
+
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+    if (nowMs >= startMs && nowMs < endMs && !isTriggered) {
+      await prefs.setBool('schedule_triggered', true);
+      try {
+        await _channel.invokeMethod('startRecording', {
+          'camera': camera,
+          'quality': '1080p',
+        });
+      } catch (_) {}
+    } else if (nowMs >= endMs && isTriggered) {
+      await prefs.setBool('schedule_triggered', false);
+      await prefs.setBool('schedule_enabled', false);
+      try {
+        await _channel.invokeMethod('stopRecording');
+      } catch (_) {}
+    }
+  }
+}
 
 class ScheduleConfigScreen extends StatefulWidget {
-  const ScheduleConfigScreen({Key? key}) : super(key: key);
+  const ScheduleConfigScreen({super.key});
 
   @override
   State<ScheduleConfigScreen> createState() => _ScheduleConfigScreenState();
@@ -11,8 +53,8 @@ class ScheduleConfigScreen extends StatefulWidget {
 
 class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
   bool _isEnabled = false;
-  TimeOfDay _startTime = const TimeOfDay(hour: 0, minute: 0);
-  TimeOfDay _endTime = const TimeOfDay(hour: 1, minute: 0);
+  DateTime _startDateTime = DateTime.now().add(const Duration(minutes: 5));
+  DateTime _endDateTime = DateTime.now().add(const Duration(minutes: 35));
   String _cameraFacing = 'back';
 
   @override
@@ -26,118 +68,172 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
     setState(() {
       _isEnabled = prefs.getBool('schedule_enabled') ?? false;
       _cameraFacing = prefs.getString('schedule_camera') ?? 'back';
-      int startH = prefs.getInt('schedule_start_hour') ?? 0;
-      int startM = prefs.getInt('schedule_start_min') ?? 0;
-      int endH = prefs.getInt('schedule_end_hour') ?? 1;
-      int endM = prefs.getInt('schedule_end_min') ?? 0;
-      _startTime = TimeOfDay(hour: startH, minute: startM);
-      _endTime = TimeOfDay(hour: endH, minute: endM);
+      final startMs = prefs.getInt('schedule_start_ms');
+      final endMs = prefs.getInt('schedule_end_ms');
+      if (startMs != null && startMs > DateTime.now().millisecondsSinceEpoch) {
+        _startDateTime = DateTime.fromMillisecondsSinceEpoch(startMs);
+      }
+      if (endMs != null && endMs > DateTime.now().millisecondsSinceEpoch) {
+        _endDateTime = DateTime.fromMillisecondsSinceEpoch(endMs);
+      }
     });
   }
 
-  Future<void> _saveAndSchedule() async {
+  Future<void> _pickDateTime(bool isStart) async {
+    final initial = isStart ? _startDateTime : _endDateTime;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null || !mounted) return;
+
+    final selected = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    setState(() {
+      if (isStart) {
+        _startDateTime = selected;
+        if (_endDateTime.isBefore(_startDateTime)) {
+          _endDateTime = _startDateTime.add(const Duration(minutes: 30));
+        }
+      } else {
+        _endDateTime = selected;
+      }
+    });
+  }
+
+  Future<void> _saveSchedule() async {
+    if (_endDateTime.isBefore(_startDateTime) || _endDateTime.isAtSameMomentAs(_startDateTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("End time must be after Start time!")),
+      );
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('schedule_enabled', _isEnabled);
     await prefs.setString('schedule_camera', _cameraFacing);
-    await prefs.setInt('schedule_start_hour', _startTime.hour);
-    await prefs.setInt('schedule_start_min', _startTime.minute);
-    await prefs.setInt('schedule_end_hour', _endTime.hour);
-    await prefs.setInt('schedule_end_min', _endTime.minute);
+    await prefs.setInt('schedule_start_ms', _startDateTime.millisecondsSinceEpoch);
+    await prefs.setInt('schedule_end_ms', _endDateTime.millisecondsSinceEpoch);
+    await prefs.setBool('schedule_triggered', false);
 
-    if (_isEnabled) {
-      Workmanager().registerPeriodicTask(
-        "bgv_scheduled_recording",
-        "bgv_recording_task",
-        frequency: const Duration(hours: 24),
-        existingWorkPolicy: ExistingWorkPolicy.replace,
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Recording Schedule Saved & Activated")),
-      );
-    } else {
-      Workmanager().cancelByUniqueName("bgv_scheduled_recording");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Recording Schedule Disabled")),
-      );
-    }
-    Navigator.pop(context);
+    await ScheduleManager.initScheduler();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isEnabled ? "Schedule Saved & Active!" : "Schedule Disabled"),
+      ),
+    );
+    Navigator.pop(context, true);
+  }
+
+  Future<void> _cancelSchedule() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('schedule_enabled', false);
+    await prefs.setBool('schedule_triggered', false);
+    setState(() => _isEnabled = false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Schedule Cancelled")),
+    );
+    Navigator.pop(context, true);
+  }
+
+  String _formatDt(DateTime dt) {
+    final d = "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}";
+    final t = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+    return "$d  $t";
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF121218),
       appBar: AppBar(
-        title: const Text("Scheduled Recording", style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF1E1E2C),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text("Scheduled Recording"),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            SwitchListTile(
-              title: const Text("Enable Schedule", style: TextStyle(color: Colors.white, fontSize: 16)),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: SwitchListTile(
+              secondary: Icon(Icons.alarm_on, color: cs.primary),
+              title: const Text("Enable Scheduled Recording", style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(_isEnabled ? "Active - Will record automatically" : "Currently disabled"),
               value: _isEnabled,
-              activeColor: Colors.deepPurpleAccent,
               onChanged: (val) => setState(() => _isEnabled = val),
             ),
-            const Divider(color: Colors.white24),
-            ListTile(
-              title: const Text("Start Time", style: TextStyle(color: Colors.white70)),
-              trailing: Text(_startTime.format(context), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              onTap: () async {
-                final picked = await showTimePicker(context: context, initialTime: _startTime);
-                if (picked != null) setState(() => _startTime = picked);
-              },
-            ),
-            ListTile(
-              title: const Text("End Time", style: TextStyle(color: Colors.white70)),
-              trailing: Text(_endTime.format(context), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              onTap: () async {
-                final picked = await showTimePicker(context: context, initialTime: _endTime);
-                if (picked != null) setState(() => _endTime = picked);
-              },
-            ),
-            const Divider(color: Colors.white24),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: Text("Camera Selection", style: TextStyle(color: Colors.white70, fontSize: 14)),
-            ),
-            Row(
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Column(
               children: [
-                Expanded(
-                  child: RadioListTile<String>(
-                    title: const Text("Back Camera", style: TextStyle(color: Colors.white)),
-                    value: 'back',
-                    groupValue: _cameraFacing,
-                    activeColor: Colors.deepPurpleAccent,
-                    onChanged: (val) => setState(() => _cameraFacing = val!),
-                  ),
+                ListTile(
+                  leading: const Icon(Icons.play_circle_outline),
+                  title: const Text("Start Date & Time"),
+                  subtitle: Text(_formatDt(_startDateTime), style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600)),
+                  trailing: const Icon(Icons.edit_calendar),
+                  onTap: () => _pickDateTime(true),
                 ),
-                Expanded(
-                  child: RadioListTile<String>(
-                    title: const Text("Front Camera", style: TextStyle(color: Colors.white)),
-                    value: 'front',
-                    groupValue: _cameraFacing,
-                    activeColor: Colors.deepPurpleAccent,
-                    onChanged: (val) => setState(() => _cameraFacing = val!),
-                  ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.stop_circle_outlined),
+                  title: const Text("End Date & Time"),
+                  subtitle: Text(_formatDt(_endDateTime), style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600)),
+                  trailing: const Icon(Icons.edit_calendar),
+                  onTap: () => _pickDateTime(false),
                 ),
               ],
             ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurpleAccent,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          const SizedBox(height: 16),
+          const Text("Select Camera", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text("Back Camera")),
+                  selected: _cameraFacing == 'back',
+                  onSelected: (_) => setState(() => _cameraFacing = 'back'),
+                ),
               ),
-              onPressed: _saveAndSchedule,
-              child: const Text("Save Schedule", style: TextStyle(fontSize: 16, color: Colors.white)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text("Front Camera")),
+                  selected: _cameraFacing == 'front',
+                  onSelected: (_) => setState(() => _cameraFacing = 'front'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          FilledButton.icon(
+            onPressed: _saveSchedule,
+            icon: const Icon(Icons.save),
+            label: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14),
+              child: Text("Save Schedule", style: TextStyle(fontSize: 16)),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _cancelSchedule,
+            icon: const Icon(Icons.cancel_outlined),
+            label: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text("Cancel Schedule"),
+            ),
+          ),
+        ],
       ),
     );
   }
