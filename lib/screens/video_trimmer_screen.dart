@@ -29,14 +29,18 @@ class _VideoTrimmerScreenState extends State<VideoTrimmerScreen> {
     await _trimmer.saveTrimmedVideo(
       startValue: _startValue,
       endValue: _endValue,
-      storageDir: '/storage/emulated/0/Movies/BackgroundVideoRecorder',
-      videoFileName: 'Edited_${DateTime.now().millisecondsSinceEpoch}.mp4',
       onSave: (outputPath) {
         setState(() => _isProgressVisible = false);
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Edited video saved successfully at: $outputPath")),
-        );
+        if (outputPath != null) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Edited video saved successfully at: $outputPath")),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Failed to save trimmed video")),
+          );
+        }
       },
     );
   }
