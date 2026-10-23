@@ -86,6 +86,11 @@ class _TabsRootState extends State<TabsRoot> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'History'),
+          NavigationDestination(
+            icon: Icon(Icons.content_cut_outlined),
+            selectedIcon: Icon(Icons.content_cut),
+            label: 'Cut & Edit',
+          ),
         ],
       ),
     );
