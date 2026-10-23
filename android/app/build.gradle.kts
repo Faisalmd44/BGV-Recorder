@@ -27,6 +27,17 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        pickFirsts += listOf(
+            "lib/arm64-v8a/libc++_shared.so",
+            "lib/armeabi-v7a/libc++_shared.so",
+            "lib/x86/libc++_shared.so",
+            "lib/x86_64/libc++_shared.so",
+            "lib/*/libc++_shared.so"
+        )
+    }
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 
     defaultConfig {
