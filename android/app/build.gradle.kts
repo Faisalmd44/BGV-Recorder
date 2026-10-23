@@ -32,11 +32,21 @@ android {
 
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += listOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "/META-INF/*.version"
+            )
         }
         jniLibs {
-            useLegacyPackaging = true
-            pickFirsts.add("**/*.so")
+            pickFirsts += listOf(
+                "**/libc++_shared.so",
+                "**/libffmpegkit.so",
+                "**/libffmpegkit_abidetect.so",
+                "**/*.so"
+            )
+            keepDebugSymbols += listOf(
+                "**/*.so"
+            )
         }
     }
 
