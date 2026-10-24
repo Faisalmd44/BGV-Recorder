@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ScheduleManager {
   static Timer? _timer;
-  static const MethodChannel _channel = MethodChannel('com.example.bgv_recorder/recorder');
+  static const MethodChannel _channel = MethodChannel('bvr/channel');
 
   static Future<void> initScheduler() async {
     _timer?.cancel();
@@ -29,16 +29,16 @@ class ScheduleManager {
     if (nowMs >= startMs && nowMs < endMs && !isTriggered) {
       await prefs.setBool('schedule_triggered', true);
       try {
-        await _channel.invokeMethod('startRecording', {
-          'camera': camera,
-          'quality': '1080p',
+        await _channel.invokeMethod('startService', {
+          'cameraFacing': camera,
+          'quality': 1080,
         });
       } catch (_) {}
     } else if (nowMs >= endMs && isTriggered) {
       await prefs.setBool('schedule_triggered', false);
       await prefs.setBool('schedule_enabled', false);
       try {
-        await _channel.invokeMethod('stopRecording');
+        await _channel.invokeMethod('stopService');
       } catch (_) {}
     }
   }
