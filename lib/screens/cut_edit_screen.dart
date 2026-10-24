@@ -1,7 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'video_trimmer_screen.dart';
 
 class CutEditScreen extends StatefulWidget {
   const CutEditScreen({super.key});
@@ -21,30 +19,29 @@ class _CutEditScreenState extends State<CutEditScreen> {
   }
 
   Future<void> _loadVideos() async {
+    if (!mounted) return;
     setState(() => _loading = true);
-    await Permission.storage.request();
-    await Permission.videos.request();
 
     final List<File> found = [];
-    final dirs = [
-      Directory('/storage/emulated/0/Movies/BackgroundVideoRecorder'),
-      Directory('/storage/emulated/0/Movies'),
-    ];
+    final dir = Directory('/storage/emulated/0/Movies/BackgroundVideoRecorder');
+    try {
+      if (dir.existsSync()) {
+        final files = dir
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.toLowerCase().endsWith('.mp4'))
+            .toList();
+        found.addAll(files);
+      }
+    } catch (_) {}
 
-    for (final d in dirs) {
+    found.sort((a, b) {
       try {
-        if (d.existsSync()) {
-          final files = d
-              .listSync()
-              .whereType<File>()
-              .where((f) => f.path.toLowerCase().endsWith('.mp4'))
-              .toList();
-          found.addAll(files);
-        }
-      } catch (_) {}
-    }
-
-    found.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+        return b.lastModifiedSync().compareTo(a.lastModifiedSync());
+      } catch (_) {
+        return 0;
+      }
+    });
 
     if (!mounted) return;
     setState(() {
@@ -53,71 +50,131 @@ class _CutEditScreenState extends State<CutEditScreen> {
     });
   }
 
+  void _showTrimmingPendingDialog(File file) {
+    final fileName = file.path.split('/').last;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.construction_outlined, size: 36),
+        title: const Text('Video Trimming Coming Soon'),
+        content: Text(
+          'Selected recording: $fileName\n\n'
+          'Native lossless MP4 trimming is not implemented yet. '
+          'Your original video remains safely stored in Movies/BackgroundVideoRecorder.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Cut & Edit Videos"),
+        title: const Text('Cut & Edit'),
         actions: [
           IconButton(
+            tooltip: 'Refresh recordings',
             icon: const Icon(Icons.refresh),
             onPressed: _loadVideos,
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _videos.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.video_library_outlined, size: 64, color: Colors.grey),
-                      const SizedBox(height: 12),
-                      const Text("No recorded videos found in Movies/BackgroundVideoRecorder"),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: _loadVideos,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text("Refresh"),
-                      ),
-                    ],
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            elevation: 0,
+            color: cs.secondaryContainer.withValues(alpha: 0.6),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, color: cs.onSecondaryContainer),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Video Trimming Under Development',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: cs.onSecondaryContainer,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Direct MP4 trimming and saving are not enabled yet. '
+                          'You can view your recorded files below; use the History tab for playback and deletion.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: cs.onSecondaryContainer,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _videos.length,
-                  itemBuilder: (context, index) {
-                    final file = _videos[index];
-                    final name = file.path.split('/').last;
-                    final sizeMb = (file.lengthSync() / (1024 * 1024)).toStringAsFixed(2);
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.movie_creation_outlined),
-                        ),
-                        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text("$sizeMb MB"),
-                        trailing: FilledButton.tonalIcon(
-                          icon: const Icon(Icons.content_cut, size: 18),
-                          label: const Text("Trim"),
-                          onPressed: () async {
-                            final res = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => VideoTrimmerScreen(videoFile: file),
-                              ),
-                            );
-                            if (res == true) {
-                              _loadVideos();
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  },
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_videos.isEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.video_library_outlined, size: 56, color: cs.outline),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No recordings found in Movies/BackgroundVideoRecorder',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
+              ),
+            )
+          else
+            ..._videos.map((file) {
+              final name = file.path.split('/').last;
+              double sizeMb = 0;
+              try {
+                sizeMb = file.lengthSync() / (1024 * 1024);
+              } catch (_) {}
+              return Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.movie_outlined),
+                  ),
+                  title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text('${sizeMb.toStringAsFixed(2)} MB'),
+                  trailing: OutlinedButton.icon(
+                    icon: const Icon(Icons.content_cut, size: 18),
+                    label: const Text('Trim'),
+                    onPressed: () => _showTrimmingPendingDialog(file),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
     );
   }
 }

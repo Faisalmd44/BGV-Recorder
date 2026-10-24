@@ -1,10 +1,10 @@
-import 'screens/cut_edit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/cut_edit_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,21 +71,36 @@ class TabsRoot extends StatefulWidget {
 class _TabsRootState extends State<TabsRoot> {
   int _index = 0;
 
-  final _pages = const [
+  final List<Widget> _pages = const [
     RecorderHomePage(),
     HistoryPage(),
+    CutEditScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final int safeIndex = (_index >= 0 && _index < _pages.length) ? _index : 0;
+
     return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
+      body: IndexedStack(index: safeIndex, children: _pages),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        selectedIndex: safeIndex,
+        onDestinationSelected: (i) {
+          if (i >= 0 && i < _pages.length) {
+            setState(() => _index = i);
+          }
+        },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'History'),
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: 'History',
+          ),
           NavigationDestination(
             icon: Icon(Icons.content_cut_outlined),
             selectedIcon: Icon(Icons.content_cut),
